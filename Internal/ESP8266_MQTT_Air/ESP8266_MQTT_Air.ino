@@ -1,14 +1,16 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define RelayPin  2
-#define StatusPin 14
+#define RemoteRelayPin  12
+#define SavingRelayPin  16
+#define StatusPin       5
+#define LEDPin          2
 
 // Update these with values suitable for your network.
 const char* ssid = "OpenWrt";
 const char* password = "0842216218";
 //const char* mqtt_server = "broker.mqtt-dashboard.com";
-IPAddress ip_server(192,168,100,1);
+IPAddress ip_server(192, 168, 100, 1);
 
 const char* inTopic = "Air1_Command";
 const char* outTopic = "Status";
@@ -50,11 +52,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // Switch on the LED if an 1 was received as first character
   if ((char)payload[0] == '1') {
-    digitalWrite(RelayPin, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is acive low on the ESP-01)
-  } else {
-    digitalWrite(RelayPin, HIGH);  // Turn the LED off by making the voltage HIGH
+    digitalWrite(RemoteRelayPin, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    Serial.println("Remote Relay --> ON");
+  }
+  else if ((char)payload[0] == '2') {
+    digitalWrite(RemoteRelayPin, HIGH);  // Turn the LED off by making the voltage HIGH
+    Serial.println("Remote Relay --> OFF");
+  }
+  else if ((char)payload[0] == '3') {
+    digitalWrite(SavingRelayPin, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    Serial.println("Saving Relay --> ON");
+  }
+  else if ((char)payload[0] == '4'){
+    digitalWrite(SavingRelayPin, HIGH);  // Turn the LED off by making the voltage HIGH
+    Serial.println("Saving Relay --> OFF");
   }
 
 }
@@ -81,10 +92,15 @@ void reconnect() {
 }
 
 void setup() {
-  pinMode(RelayPin, OUTPUT);
+  pinMode(RemoteRelayPin, OUTPUT);
+  pinMode(SavingRelayPin, OUTPUT);
+  pinMode(LEDPin, OUTPUT);
   pinMode(StatusPin, INPUT);
-  digitalWrite(RelayPin,HIGH);
+  digitalWrite(RemoteRelayPin, HIGH);
+  digitalWrite(SavingRelayPin, HIGH);
+  digitalWrite(LEDPin, HIGH);
   Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
   setup_wifi();
   client.setServer(ip_server, 1883);
   client.setCallback(callback);
@@ -92,20 +108,22 @@ void setup() {
 
 void loop() {
 
-  if (!client.connected()) 
+  if (!client.connected())
   {
     reconnect();
   }
   client.loop();
 
   long now = millis();
-  if (now - lastMsg > 2000) {
+  if (now - lastMsg > 1000) {
     lastMsg = now;
     boolean st = digitalRead(StatusPin);
     snprintf (msg, 75, "A1#%d", st);
     Serial.print("Publish message: ");
     Serial.println(msg);
     client.publish(outTopic, msg);
-    digitalWrite(RelayPin, !st);
+    digitalWrite(LEDPin, LOW);
+    delay(10);
+    digitalWrite(LEDPin, HIGH);
   }
 }
