@@ -12,8 +12,13 @@ const char* password = "0842216218";
 //const char* mqtt_server = "broker.mqtt-dashboard.com";
 IPAddress ip_server(192, 168, 100, 1);
 
+<<<<<<< HEAD
 const char* ClientName = "Motion_1";
 const char* inTopic = "Mot1_Command";
+=======
+const char* ClientID = "ESP-Air1";
+const char* inTopic = "Air1_Command";
+>>>>>>> project/master
 const char* outTopic = "Status";
 const unsigned int IntervalTime = 2500;
 
@@ -77,7 +82,11 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
+<<<<<<< HEAD
     if (client.connect(ClientName)) {
+=======
+    if (client.connect(ClientID)) {
+>>>>>>> project/master
       Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish(outTopic, "hello world");
