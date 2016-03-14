@@ -10,6 +10,7 @@ const char* password = "0842216218";
 //const char* mqtt_server = "broker.mqtt-dashboard.com";
 IPAddress ip_server(192,168,100,1);
 
+const char* ClientID = "ESP-Client";
 const char* inTopic = "Air1_Command";
 const char* outTopic = "Status";
 
@@ -64,7 +65,7 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266_Client1")) {
+    if (client.connect(ClientID)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish(outTopic, "hello world");

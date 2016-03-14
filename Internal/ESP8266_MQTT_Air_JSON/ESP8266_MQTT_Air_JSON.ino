@@ -1,19 +1,27 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
+
+#define RemoteRelayPin  12
+#define SavingRelayPin  16
+#define StatusPin       5
+#define LEDPin          2
+#define intervalTime    1000
 
 // Update these with values suitable for your network.
-
-const char* ClientID = "ESP8266_Testing";
 const char* ssid = "OpenWrt";
 const char* password = "0842216218";
-//const char* mqtt_server = "broker.mqtt-dashboard.com";
-IPAddress ip_server(192,168,100,1);
+IPAddress ip_server(192, 168, 100, 1);
+
+const char* ClientID = "ESP8266_Air1";
+const char* inTopic = "Air1";
+const char* outTopic = "Status";
+
+unsigned long lastMsg = 0;
+char outMsg[100], inMsg[100];
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-long lastMsg = 0;
-char msg[50];
-int value = 0;
 
 void setup_wifi() {
 
@@ -45,15 +53,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is acive low on the ESP-01)
-  } else {
-    digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-  }
+  //if ((char)payload[0] == '1') {
 
+  }
 }
 
 void reconnect() {
@@ -64,9 +66,9 @@ void reconnect() {
     if (client.connect(ClientID)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("outTopic", "hello world");
+      client.publish(outTopic, "Air1 Connected");
       // ... and resubscribe
-      client.subscribe("inTopic");
+      client.subscribe(inTopic);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -77,9 +79,33 @@ void reconnect() {
   }
 }
 
+void Generate_message()
+{
+  //boolean st = digitalRead(StatusPin);
+  //snprintf (msg, 75, "M1#%d", st);
+
+  //StaticJsonBuffer<200> jsonBuffer;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  root["name"] = "A1";
+  root["status"] = digitalRead(StatusPin);
+  root["signal_level"] = WiFi.RSSI();
+  root["free_heap"] = ESP.getFreeHeap();
+  root["millis"] = millis();
+  strcpy(outMsg, "");
+  root.printTo(outMsg, sizeof(outMsg));
+}
+
 void setup() {
-  pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
+  pinMode(RemoteRelayPin, OUTPUT);
+  pinMode(SavingRelayPin, OUTPUT);
+  pinMode(LEDPin, OUTPUT);
+  pinMode(StatusPin, INPUT);
+  digitalWrite(RemoteRelayPin, HIGH);
+  digitalWrite(SavingRelayPin, HIGH);
+  digitalWrite(LEDPin, HIGH);
   Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
   setup_wifi();
   client.setServer(ip_server, 1883);
   client.setCallback(callback);
@@ -87,19 +113,23 @@ void setup() {
 
 void loop() {
 
-  if (!client.connected()) 
+  if (!client.connected())
   {
     reconnect();
   }
   client.loop();
 
   long now = millis();
-  if (now - lastMsg > 2000) {
+  if (now - lastMsg > intervalTime) {
     lastMsg = now;
-    ++value;
-    snprintf (msg, 75, "hello world #%ld", value);
+    
+    Generate_message();
     Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish("outTopic", msg);
+    Serial.println(outMsg);
+    client.publish(outTopic, outMsg);
+    
+    digitalWrite(LEDPin, LOW);
+    delay(1);
+    digitalWrite(LEDPin, HIGH);
   }
 }

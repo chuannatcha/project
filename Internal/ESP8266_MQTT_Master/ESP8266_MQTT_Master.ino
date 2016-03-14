@@ -15,6 +15,7 @@ const char* password = "0842216218";
 //const char* mqtt_server = "broker.mqtt-dashboard.com";
 IPAddress ip_server(192, 168, 100, 1);
 
+const char* ClientID = "ESP-Master";
 const char* inTopic = "Status";
 const char* Air1 = "Air1_Command";
 const char* Air2 = "Air2_Command";
