@@ -10,9 +10,10 @@ const char* password = "0842216218";
 //const char* mqtt_server = "broker.mqtt-dashboard.com";
 IPAddress ip_server(192, 168, 100, 1);
 
-const char* ClientID = "ESP8266-Motion4";
-const char* inTopic = "Motion4";
+const char* ClientID = "ESP8266-Motion2";
+const char* inTopic = "Motion2";
 const char* outTopic = "Status";
+const unsigned int IntervalTime = 2500;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -60,7 +61,7 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266_Client1")) {
+    if (client.connect(ClientID)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish(outTopic, "hello world");
@@ -96,15 +97,14 @@ void loop() {
   client.loop();
 
   long now = millis();
-  if (now - lastMsg > 1000) {
+  if (now - lastMsg > IntervalTime) {
     lastMsg = now;
-    boolean st = digitalRead(StatusPin);
-    snprintf (msg, 75, "M1#%d", st);
+    snprintf (msg, 75, "M2#%d", digitalRead(StatusPin));
     Serial.print("Publish message: ");
     Serial.println(msg);
     client.publish(outTopic, msg);
     digitalWrite(LEDPin, LOW);
-    delay(10);
+    delay(1);
     digitalWrite(LEDPin, HIGH);
   }
 }
