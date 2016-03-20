@@ -18,7 +18,7 @@ const char* inTopic = "Air1";
 const char* outTopic = "Status";
 
 unsigned long lastMsg = 0;
-char outMsg[100], inMsg[100];
+char C2Mmsg[200], M2Cmsg[200];
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -47,15 +47,46 @@ void setup_wifi() {
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
+  Serial.print("] -> ");
 
+  char* text;
+  text = (char*) malloc(length + 1);
+  memcpy(text, payload, length);
+  text[length] = '\0';
+
+  strcpy(M2Cmsg,"");
+  strcpy(M2Cmsg, text);
+
+  Serial.println(M2Cmsg);
+  
+  StaticJsonBuffer<200> RxBuffer;
+  JsonObject& Rx = RxBuffer.parseObject(M2Cmsg);
+  if (!Rx.success()) {
+    Serial.println("parseObject() failed");
+    return;
+  }
+  const char* Rname = Rx["Rname"];
+  char mode = Rx["mode"];
+  boolean Rlogic = Rx["Rlogic"];
+  Serial.println(Rname);
+  Serial.println(mode);
+  Serial.println(Rlogic);
+
+  if(!strcmp(Rname,"A1"))
+  {
+    if(mode == 'R')
+    {
+      digitalWrite(RemoteRelayPin,!Rlogic);
+      Serial.println("Remote Pin has changed");
+    }
+    else if(mode == 'S')
+    {
+      digitalWrite(SavingRelayPin,!Rlogic);
+      Serial.println("Saving Pin has changed");
+    }
+  }
+  free(text);
   //if ((char)payload[0] == '1') {
-
-  }
 }
 
 void reconnect() {
@@ -84,16 +115,16 @@ void Generate_message()
   //boolean st = digitalRead(StatusPin);
   //snprintf (msg, 75, "M1#%d", st);
 
-  //StaticJsonBuffer<200> jsonBuffer;
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  root["name"] = "A1";
-  root["status"] = digitalRead(StatusPin);
-  root["signal_level"] = WiFi.RSSI();
-  root["free_heap"] = ESP.getFreeHeap();
-  root["millis"] = millis();
-  strcpy(outMsg, "");
-  root.printTo(outMsg, sizeof(outMsg));
+  boolean st = !digitalRead(StatusPin);
+  StaticJsonBuffer<200> TxBuffer;
+  JsonObject& Tx = TxBuffer.createObject();
+  Tx["Tname"] = "A1";
+  Tx["Tlogic"] = st;
+  Tx["signal_level"] = WiFi.RSSI();
+  Tx["free_heap"] = ESP.getFreeHeap();
+  Tx["millis"] = millis();
+  strcpy(C2Mmsg, "");
+  Tx.printTo(C2Mmsg, sizeof(C2Mmsg));
 }
 
 void setup() {
@@ -122,14 +153,15 @@ void loop() {
   long now = millis();
   if (now - lastMsg > intervalTime) {
     lastMsg = now;
-    
+
     Generate_message();
     Serial.print("Publish message: ");
-    Serial.println(outMsg);
-    client.publish(outTopic, outMsg);
-    
+    Serial.println(C2Mmsg);
+    client.publish(outTopic, C2Mmsg);
+
     digitalWrite(LEDPin, LOW);
-    delay(1);
+    delayMicroseconds(200);
     digitalWrite(LEDPin, HIGH);
+
   }
 }

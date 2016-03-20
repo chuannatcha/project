@@ -2,6 +2,8 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
+#define RemoteRelayPin  12
+#define SavingRelayPin  16
 #define StatusPin       5
 #define LEDPin          2
 #define intervalTime    1000
@@ -11,8 +13,8 @@ const char* ssid = "OpenWrt";
 const char* password = "0842216218";
 IPAddress ip_server(192, 168, 100, 1);
 
-const char* ClientID = "ESP8266_Motion1";
-const char* inTopic = "Motion1";
+const char* ClientID = "ESP8266_Air1";
+const char* inTopic = "Air1";
 const char* outTopic = "Status";
 
 unsigned long lastMsg = 0;
@@ -45,7 +47,7 @@ void setup_wifi() {
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
-  Serial.print("] -> ");
+  Serial.print("] : ");
 
   char* text;
   text = (char*) malloc(length + 1);
@@ -56,7 +58,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
   strcpy(M2Cmsg, text);
 
   Serial.println(M2Cmsg);
-  
+
+  if(M2Cmsg[0] == 'A' && M2Cmsg[1] == '1')
+  {
+    if(M2Cmsg[3] == 'R')
+    {
+      digitalWrite(RemoteRelayPin,M2Cmsg[5]-48);
+      Serial.println("Remote Pin has changed");
+    }
+    else if(M2Cmsg[3] == 'S')
+    {
+      digitalWrite(SavingRelayPin,M2Cmsg[5]-48);
+      Serial.println("Saving Pin has changed");
+    }
+  }
   free(text);
   //if ((char)payload[0] == '1') {
 }
@@ -69,7 +84,7 @@ void reconnect() {
     if (client.connect(ClientID)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish(outTopic, "Motion1 Connected");
+      client.publish(outTopic, "Air1 Connected");
       // ... and resubscribe
       client.subscribe(inTopic);
     } else {
@@ -88,20 +103,24 @@ void Generate_message()
   //snprintf (msg, 75, "M1#%d", st);
 
   //StaticJsonBuffer<200> jsonBuffer;
-  DynamicJsonBuffer TxBuffer;
-  JsonObject& Tx = TxBuffer.createObject();
-  Tx["Tname"] = "M1";
-  Tx["Tlogic"] = digitalRead(StatusPin);
-  Tx["signal_level"] = WiFi.RSSI();
-  Tx["free_heap"] = ESP.getFreeHeap();
-  Tx["millis"] = millis();
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  root["name"] = "A1";
+  root["status"] = digitalRead(StatusPin);
+  root["signal_level"] = WiFi.RSSI();
+  root["free_heap"] = ESP.getFreeHeap();
+  root["millis"] = millis();
   strcpy(C2Mmsg, "");
-  Tx.printTo(C2Mmsg, sizeof(C2Mmsg));
+  root.printTo(C2Mmsg, sizeof(C2Mmsg));
 }
 
 void setup() {
+  pinMode(RemoteRelayPin, OUTPUT);
+  pinMode(SavingRelayPin, OUTPUT);
   pinMode(LEDPin, OUTPUT);
   pinMode(StatusPin, INPUT);
+  digitalWrite(RemoteRelayPin, HIGH);
+  digitalWrite(SavingRelayPin, HIGH);
   digitalWrite(LEDPin, HIGH);
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);

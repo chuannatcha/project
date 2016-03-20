@@ -18,7 +18,7 @@ void loop() {
     stringComplete = false;
   }
   */
-  snprintf (data, 20, "M1#%d-", num);
+  snprintf (data, 20, "M1-%d#", num);
   checksum = 0;
   for(char x=0; x < strlen(data)-1 ; x++)
     checksum ^= data[x];
