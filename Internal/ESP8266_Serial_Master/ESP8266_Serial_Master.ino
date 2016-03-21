@@ -1,13 +1,13 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define LED 2
-#define data_length 7
-
-String incomingString = "", check = "", dataR = "";         // a string to hold incoming data
-boolean incomingComplete = false;  // whether the string is complete
-char data[20], leng;
-int chksum_msg, chksum_result;
+String A2Minput = "";
+boolean A2Mcomplete = false;
+char C2Mmsg[100], M2Cmsg[100], M2Amsg[20], A2Mmsg[20];
+unsigned char M2Achecksum, A2Mchecksum;
+boolean Tstatus[] = {true, false, false,  true, false,  true, false, true};
+//Type            A2    A1    L1    L2    L3    M1    M2    M3
+//Index           0     1     2     3     4     5     6     7
 
 const char* ssid = "OpenWrt";
 const char* password = "0842216218";
@@ -17,8 +17,6 @@ IPAddress ip_server(192, 168, 100, 1);
 const char* ClientID = "ESP-Master";
 const char* inTopic = "Status";
 const char* outTopic = "Command";
-
-boolean RemoteState = 0, SavingState = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -54,7 +52,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     text[length] = '\0';
     Serial.println(text);
   */
-  for (int i = 0; i < length; i++) {
+  for (char i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
   //Serial.println((char)payload[length-1]);
@@ -81,84 +79,125 @@ void reconnect() {
   }
 }
 
+void Send_M2A()
+{
+  strcpy(M2Amsg,"");
+  M2Achecksum = 0;
+  for (char x = 0; x < 8; x++)
+  {
+    M2Amsg[x] = Tstatus[x] + 48;
+    M2Achecksum += Tstatus[x];
+  }
+  M2Amsg[8] = '\0';
+  snprintf(M2Amsg, 20, "%s#%01d", M2Amsg, M2Achecksum);
+  Serial.println(M2Amsg);
+}
+
 void serialEvent() {
-  while (Serial.available()) {
+  while (Serial.available())
+  {
     char inChar = (char)Serial.read();
-    incomingString += inChar;
-    digitalWrite(LED,LOW);
-    delay(1);
-    digitalWrite(LED,HIGH);
-    if (inChar == '\n') {
-      incomingComplete = true;
+    A2Minput += inChar;
+    if (inChar == '\n')
+    {
+      A2Mcomplete = true;
     }
+  }
+  if (A2Mcomplete)
+  {
+    Parse_Serial();
+    A2Minput = "";
+    A2Mcomplete = false;
   }
 }
 
-void CheckSum()
+void Parse_Serial()
 {
-  //
+  unsigned char ChksumPosition = A2Minput.indexOf('#');
+  String Chksum = A2Minput.substring(ChksumPosition + 1, ChksumPosition + 4);
+  unsigned char checksum = Chksum.toInt();
+
+  A2Minput = A2Minput.substring(0, ChksumPosition);
+  A2Minput.toCharArray(A2Mmsg, 20);
+
+  A2Mchecksum = 0;
+  for (char x = 0; x < ChksumPosition; x++)
+  {
+    A2Mchecksum ^= A2Mmsg[x];
+  }
+  Serial.println(A2Mmsg);
+  Serial.println(checksum);
+  Serial.println(A2Mchecksum);
+
+  if (checksum == A2Mchecksum)
+  {
+    Serial.println("Checksum OK");
+  }
 }
 
 void setup() {
   Serial.begin(9600);
-  pinMode(LED,OUTPUT);
-  digitalWrite(LED,HIGH);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
   WiFi.mode(WIFI_STA);
   setup_wifi();
   client.setServer(ip_server, 1883);
   client.setCallback(callback);
-  incomingString.reserve(20);
+  A2Minput.reserve(20);
 }
 
 void loop() {
   if (!client.connected())
     reconnect();
   client.loop();
-  
-  if (incomingComplete) {
-    Serial.print("Incoming : ");
-    Serial.print(incomingString);
 
-    dataR = incomingString.substring(0,data_length);
-    //const char* Msg = incomingString.c_str();
-    dataR.toCharArray(data, 20);
-
-    leng = strlen(incomingString.c_str());
-    check = incomingString.substring(leng-5,leng-2);
-    chksum_msg = check.toInt();
-
-    chksum_result = 0;
-    for(int x=0; x < strlen(data) ; x++) //-6
-    {
-      chksum_result ^= data[x];
-    }
-    Serial.print("Check Sum Data   : ");
-    Serial.println(chksum_msg);
-    Serial.print("Check Sum Result : ");
-    Serial.println(chksum_result);
-    
-    Serial.println("");
-    
-    //strcpy(checksum, incomingString.substring(strlen(Msg)-2,strlen(Msg)-1));
-    //snprintf (msg, 50, "%s", incomingString.c_str());
-    //strcpy(msg, incomingString.c_str());
-    //client.publish(outTopic,incomingString.c_str());
-    
-    digitalWrite(LED,LOW);
-    delay(1);
-    digitalWrite(LED,HIGH);
-    // clear the string:
-    incomingString = "";
-    check = "";
-    dataR = "";
-    incomingComplete = false;
-  }
   serialEvent();
+  /*
+    if (incomingComplete) {
+      Serial.print("Incoming : ");
+      Serial.print(incomingString);
+
+      dataR = incomingString.substring(0, data_length);
+      //const char* Msg = incomingString.c_str();
+      dataR.toCharArray(data, 20);
+
+      leng = strlen(incomingString.c_str());
+      check = incomingString.substring(leng - 5, leng - 2);
+      chksum_msg = check.toInt();
+
+      chksum_result = 0;
+      for (int x = 0; x < strlen(data) ; x++) //-6
+      {
+        chksum_result ^= data[x];
+      }
+      Serial.print("Check Sum Data   : ");
+      Serial.println(chksum_msg);
+      Serial.print("Check Sum Result : ");
+      Serial.println(chksum_result);
+
+      Serial.println("");
+
+      //strcpy(checksum, incomingString.substring(strlen(Msg)-2,strlen(Msg)-1));
+      //snprintf (msg, 50, "%s", incomingString.c_str());
+      //strcpy(msg, incomingString.c_str());
+      //client.publish(outTopic,incomingString.c_str());
+
+      digitalWrite(LED, LOW);
+      delay(1);
+      digitalWrite(LED, HIGH);
+      // clear the string:
+      incomingString = "";
+      check = "";
+      dataR = "";
+      incomingComplete = false;
+    }
+    serialEvent();
+  */
 }
 
 /*
   SerialEvent occurs whenever a new data comes in the
- hardware serial RX.  This routine is run between each
- time loop() runs, so using delay inside loop can delay
- response.  Multiple bytes of data may be available.
- */
+  hardware serial RX.  This routine is run between each
+  time loop() runs, so using delay inside loop can delay
+  response.  Multiple bytes of data may be available.
+*/

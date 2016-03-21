@@ -25,13 +25,16 @@ const char* Air1 = "Air1";
 const char* Light = "Light";
 const char* Motion1 = "Motion1";
 
-char C2Mmsg[100], M2Cmsg[100], M2Amsg[100], A2Mmsg[100];
+String A2Minput = "";
+boolean A2Mcomplete = false;
+char C2Mmsg[100], M2Cmsg[100], M2Amsg[20], A2Mmsg[20];
+
 char M2Ctype[2] = {'A', '1'};
 char M2Cmode = 'R';
 boolean M2Clogic = 0;
+
 unsigned char M2Achecksum, A2Mchecksum;
 unsigned long lastMsg = 0;
-boolean RemoteState = 0, SavingState = 0;
 boolean Tstatus[] = {false, false, false, false, false, false, false, false};
 //Type            A2    A1    L1    L2    L3    M1    M2    M3
 //Index           0     1     2     3     4     5     6     7
@@ -43,27 +46,27 @@ void setup_wifi() {
 
   delay(10);
   // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  //Serial.println();
+  //Serial.print("Connecting to ");
+  //Serial.println(ssid);
 
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    //Serial.print(".");
   }
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  //Serial.println("");
+  //Serial.println("WiFi connected");
+  //Serial.println("IP address: ");
+  //Serial.println(WiFi.localIP());
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] -> ");
+  //Serial.print("Message arrived [");
+  //Serial.print(topic);
+  //Serial.print("] -> ");
 
   char* text;
   text = (char*) malloc(length + 1);
@@ -86,18 +89,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
+    //Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect(ClientID)) {
-      Serial.println("connected");
+      //Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish(outTopic, "hello world");
       // ... and resubscribe
       client.subscribe(inTopic);
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      //Serial.print("failed, rc=");
+      //Serial.print(client.state());
+      //Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       delay(5000);
     }
@@ -148,14 +151,75 @@ void Send_M2C()
     client.publish(Air1, M2Cmsg);
   else if (M2Ctype[0] == 'L')
     client.publish(Light, M2Cmsg);
-  //Serial.println(M2Cmsg);
+  Serial.println(M2Cmsg);
   //Serial.println(strlen(M2Cmsg));
+}
+
+void Send_M2A()
+{
+  strcpy(M2Amsg,"");
+  M2Achecksum = 0;
+  for (char x = 0; x < 8; x++)
+  {
+    M2Amsg[x] = Tstatus[x] + 48;
+    M2Achecksum += Tstatus[x];
+  }
+  M2Amsg[8] = '\0';
+  snprintf(M2Amsg, 20, "%s#%01d", M2Amsg, M2Achecksum);
+  Serial.println(M2Amsg);
+}
+
+void serialEvent() {
+  while (Serial.available())
+  {
+    char inChar = (char)Serial.read();
+    A2Minput += inChar;
+    if (inChar == '\n')
+    {
+      A2Mcomplete = true;
+    }
+  }
+  if (A2Mcomplete)
+  {
+    Parse_Serial();
+    A2Minput = "";
+    A2Mcomplete = false;
+  }
+}
+
+void Parse_Serial()
+{
+  unsigned char ChksumPosition = A2Minput.indexOf('#');
+  String Chksum = A2Minput.substring(ChksumPosition + 1, ChksumPosition + 4);
+  unsigned char checksum = Chksum.toInt();
+
+  A2Minput = A2Minput.substring(0, ChksumPosition);
+  A2Minput.toCharArray(A2Mmsg, 20);
+
+  A2Mchecksum = 0;
+  for (char x = 0; x < ChksumPosition; x++)
+  {
+    A2Mchecksum ^= A2Mmsg[x];
+  }
+  Serial.println(A2Mmsg);
+  //Serial.println(checksum);
+  //Serial.println(A2Mchecksum);
+
+  if (checksum == A2Mchecksum)
+  {
+    Serial.println("Checksum OK");
+    M2Ctype[0] = A2Mmsg[0];
+    M2Ctype[1] = A2Mmsg[1];
+    M2Cmode = A2Mmsg[3];
+    M2Clogic = A2Mmsg[5]-48;
+    Send_M2C();
+  }
 }
 
 void setup() {
   pinMode(LEDPin, OUTPUT);
   digitalWrite(LEDPin, HIGH);
-  Serial.begin(115200);
+  Serial.begin(9600);
   WiFi.mode(WIFI_STA);
   setup_wifi();
   client.setServer(ip_server, 1883);
@@ -168,10 +232,14 @@ void loop()
     reconnect();
   client.loop();
 
+  serialEvent();
+  
   long now = millis();
   if (now - lastMsg > intervalTime) {
     lastMsg = now;
 
+    Send_M2A();
+    
     digitalWrite(LEDPin, LOW);
     delayMicroseconds(200);
     digitalWrite(LEDPin, HIGH);
