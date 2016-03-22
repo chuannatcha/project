@@ -9,7 +9,7 @@
 #define RemoteRelayPinL3  12
 #define SavingRelayPinL3  16
 #define LEDPin          2
-#define intervalTime    1000
+#define intervalTime    2000
 
 // Update these with values suitable for your network.
 const char* ssid = "OpenWrt";

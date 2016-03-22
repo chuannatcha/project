@@ -2,7 +2,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-#define intervalTime 5000
+#define intervalTime 2500
 #define LEDPin 2
 #define A2 0
 #define A1 1
@@ -23,7 +23,6 @@ const char* inTopic = "Status";
 const char* outTopic = "outTopic";
 const char* Air1 = "Air1";
 const char* Light = "Light";
-const char* Motion1 = "Motion1";
 
 String A2Minput = "";
 boolean A2Mcomplete = false;
@@ -36,8 +35,8 @@ boolean M2Clogic = 0;
 unsigned char M2Achecksum, A2Mchecksum;
 unsigned long lastMsg = 0;
 boolean Tstatus[] = {false, false, false, false, false, false, false, false};
-//Type            A2    A1    L1    L2    L3    M1    M2    M3
-//Index           0     1     2     3     4     5     6     7
+      //Type            A2     A1     L1     L2     L3     M1     M2     M3
+      //Index            0      1      2      3      4      5      6      7
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -73,13 +72,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
   memcpy(text, payload, length);
   text[length] = '\0';
   strcpy(C2Mmsg, text);
-  Serial.println(C2Mmsg);
+  //Serial.println(C2Mmsg);
   Parse_message();
-
+/*
   for (int x = 0; x < 8; x++)
     Serial.print(Tstatus[x]);
   Serial.println("");
-
+*/
   free(text);
   //Serial.println(ESP.getFreeHeap());
 
@@ -112,13 +111,13 @@ void Parse_message()
   DynamicJsonBuffer RxBuffer;
   JsonObject& Rx = RxBuffer.parseObject(C2Mmsg);
   if (!Rx.success()) {
-    Serial.println("parseObject() failed");
+    //Serial.println("parseObject() failed");
     return;
   }
   const char* Tname = Rx["Tname"];
   boolean Tlogic = Rx["Tlogic"];
-  Serial.println(Tname);
-  Serial.println(Tlogic);
+  //Serial.println(Tname);
+  //Serial.println(Tlogic);
 
   if (!strcmp(Tname, "A1"))
     Tstatus[A1] = Tlogic;
@@ -151,7 +150,7 @@ void Send_M2C()
     client.publish(Air1, M2Cmsg);
   else if (M2Ctype[0] == 'L')
     client.publish(Light, M2Cmsg);
-  Serial.println(M2Cmsg);
+  //Serial.println(M2Cmsg);
   //Serial.println(strlen(M2Cmsg));
 }
 
@@ -201,13 +200,13 @@ void Parse_Serial()
   {
     A2Mchecksum ^= A2Mmsg[x];
   }
-  Serial.println(A2Mmsg);
+  //Serial.println(A2Mmsg);
   //Serial.println(checksum);
   //Serial.println(A2Mchecksum);
 
   if (checksum == A2Mchecksum)
   {
-    Serial.println("Checksum OK");
+    //Serial.println("Checksum OK");
     M2Ctype[0] = A2Mmsg[0];
     M2Ctype[1] = A2Mmsg[1];
     M2Cmode = A2Mmsg[3];
