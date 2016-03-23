@@ -92,23 +92,6 @@ void Parse_Serial()
   }
 }
 
-void Disable_Saving()
-{
-  if (Tstatus[M1] || Tstatus[M2] || Tstatus[M3])
-  {
-    if ((millis() - DisSavingBeginCount) > MaxEnSavingTime)
-    {
-      //Saving Disable
-      Serial.println("SA-S-0#xxx");
-      SavingModeRunning = false;
-    }
-  }
-  else
-  {
-    DisSavingBeginCount = millis();
-  }
-}
-
 void Enable_Saving()
 {
   if (Tstatus[M1] || Tstatus[M2] || Tstatus[M3])
@@ -120,9 +103,26 @@ void Enable_Saving()
     if ((millis() - EnSavingBeginCount) > MaxDisSavingTime)
     {
       //Saving Enable
-      Serial.println("SA-S-1#xxx");
+      Serial.println("SA-S-1#112");
       SavingModeRunning = true;
     }
+  }
+}
+
+void Disable_Saving()
+{
+  if (Tstatus[M1] || Tstatus[M2] || Tstatus[M3])
+  {
+    if ((millis() - DisSavingBeginCount) > MaxEnSavingTime)
+    {
+      //Saving Disable
+      Serial.println("SA-S-0#113");
+      SavingModeRunning = false;
+    }
+  }
+  else
+  {
+    DisSavingBeginCount = millis();
   }
 }
 
@@ -133,7 +133,7 @@ void Enable_Security()
     if ((millis() - EnSecurityBeginCount) > MaxEnSecurityTime)
     {
       //Security Enable ** Found theif **
-      Serial.println("LA-R-1#xxx");
+      Serial.println("LA-R-1#110");
       SecurityModeRunning = true;
     }
   }
@@ -154,7 +154,7 @@ void Disable_Security()
     if ((millis() - DisSecurityBeginCount) > MaxDisSecurityTime)
     {
       //Security Disable ** Thief went away **
-      Serial.println("LA-R-0#xxx");
+      Serial.println("LA-R-0#111");
       SecurityModeRunning = false;
     }
   }
@@ -165,7 +165,7 @@ void SwitchMode()
   if (!DeviceMode)
   {
     //Change to Security Mode
-    Serial.println("RA-R-0#xxx");//Cancel All Remote Command that operated
+    Serial.println("RA-R-0#113");//Cancel All Remote Command that operated
     attachInterrupt(digitalPinToInterrupt(SwitchModePin), SwitchMode, FALLING);
     DeviceMode = true;
     SecurityFirstTimeCount = millis();
@@ -182,11 +182,12 @@ void SwitchMode()
 void setup() {
   Serial.begin(9600);
   M2Ainput.reserve(20);
-  attachInterrupt(digitalPinToInterrupt(SwitchModePin), SwitchMode, RISING);
+  //attachInterrupt(digitalPinToInterrupt(SwitchModePin), SwitchMode, RISING);
   Serial.println("Ready to Receive");
 }
 
 void loop() {
+  /*
   if (!DeviceMode)
   {
     if (!SavingModeRunning)
@@ -209,8 +210,8 @@ void loop() {
         SecurityFirstTimeEvent = true;
     }
   }
-
-  //Send_A2M();
+  */
+  Send_A2M();
   delay(2000);
 
 }

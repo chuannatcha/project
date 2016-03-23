@@ -35,8 +35,8 @@ boolean M2Clogic = 0;
 unsigned char M2Achecksum, A2Mchecksum;
 unsigned long lastMsg = 0;
 boolean Tstatus[] = {false, false, false, false, false, false, false, false};
-      //Type            A2     A1     L1     L2     L3     M1     M2     M3
-      //Index            0      1      2      3      4      5      6      7
+//Type            A2     A1     L1     L2     L3     M1     M2     M3
+//Index            0      1      2      3      4      5      6      7
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -74,11 +74,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
   strcpy(C2Mmsg, text);
   //Serial.println(C2Mmsg);
   Parse_message();
-/*
-  for (int x = 0; x < 8; x++)
-    Serial.print(Tstatus[x]);
-  Serial.println("");
-*/
+  /*
+    for (int x = 0; x < 8; x++)
+      Serial.print(Tstatus[x]);
+    Serial.println("");
+  */
   free(text);
   //Serial.println(ESP.getFreeHeap());
 
@@ -142,10 +142,10 @@ void Send_M2C()
   Tx["Rname"] = M2Ctype;
   Tx["mode"] = M2Cmode;
   Tx["Rlogic"] = M2Clogic;
-  Tx["FreeMem"] = ESP.getFreeHeap();
-  strcpy(M2Cmsg,"");
+  //Tx["FreeMem"] = ESP.getFreeHeap();
+  strcpy(M2Cmsg, "");
   Tx.printTo(M2Cmsg, sizeof(M2Cmsg));
-  
+
   if (M2Ctype[0] == 'A')
     client.publish(Air1, M2Cmsg);
   else if (M2Ctype[0] == 'L')
@@ -156,7 +156,7 @@ void Send_M2C()
 
 void Send_M2A()
 {
-  strcpy(M2Amsg,"");
+  strcpy(M2Amsg, "");
   M2Achecksum = 0;
   for (char x = 0; x < 8; x++)
   {
@@ -210,9 +210,141 @@ void Parse_Serial()
     M2Ctype[0] = A2Mmsg[0];
     M2Ctype[1] = A2Mmsg[1];
     M2Cmode = A2Mmsg[3];
-    M2Clogic = A2Mmsg[5]-48;
+    M2Clogic = A2Mmsg[5] - 48;
+
+    Execute_Command();
+  }
+}
+
+void Execute_Command()
+{
+  if ((M2Ctype[0] == 'S') && (M2Cmode == 'S'))
+  {
+    if (M2Clogic == 1)
+    {
+      M2Ctype[0] = 'A';
+      M2Ctype[1] = '1';
+      M2Cmode = 'S';
+      M2Clogic = 1;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '1';
+      M2Cmode = 'S';
+      M2Clogic = 1;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '2';
+      M2Cmode = 'S';
+      M2Clogic = 1;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '3';
+      M2Cmode = 'S';
+      M2Clogic = 1;
+      Send_M2C();
+    }
+    else if (M2Clogic == 0)
+    {
+      M2Ctype[0] = 'A';
+      M2Ctype[1] = '1';
+      M2Cmode = 'S';
+      M2Clogic = 0;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '1';
+      M2Cmode = 'S';
+      M2Clogic = 0;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '2';
+      M2Cmode = 'S';
+      M2Clogic = 0;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '3';
+      M2Cmode = 'S';
+      M2Clogic = 0;
+      Send_M2C();
+    }
+  }
+
+  else if ((M2Ctype[0] == 'L') && (M2Cmode == 'R'))
+  {
+    if (M2Clogic == 1)
+    {
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '1';
+      M2Cmode = 'R';
+      M2Clogic = 1;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '2';
+      M2Cmode = 'R';
+      M2Clogic = 1;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '3';
+      M2Cmode = 'R';
+      M2Clogic = 1;
+      Send_M2C();
+    }
+    else if (M2Clogic == 0)
+    {
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '1';
+      M2Cmode = 'R';
+      M2Clogic = 0;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '2';
+      M2Cmode = 'R';
+      M2Clogic = 0;
+      Send_M2C();
+
+      M2Ctype[0] = 'L';
+      M2Ctype[1] = '3';
+      M2Cmode = 'R';
+      M2Clogic = 0;
+      Send_M2C();
+    }
+  }
+
+  else if ((M2Ctype[0] == 'R') && (M2Cmode == 'R') && (M2Clogic == 0))
+  {
+    M2Ctype[0] = 'A';
+    M2Ctype[1] = '1';
+    M2Cmode = 'R';
+    M2Clogic = 0;
+    Send_M2C();
+
+    M2Ctype[0] = 'L';
+    M2Ctype[1] = '1';
+    M2Cmode = 'R';
+    M2Clogic = 0;
+    Send_M2C();
+
+    M2Ctype[0] = 'L';
+    M2Ctype[1] = '2';
+    M2Cmode = 'R';
+    M2Clogic = 0;
+    Send_M2C();
+
+    M2Ctype[0] = 'L';
+    M2Ctype[1] = '3';
+    M2Cmode = 'R';
+    M2Clogic = 0;
     Send_M2C();
   }
+
 }
 
 void setup() {
@@ -232,13 +364,13 @@ void loop()
   client.loop();
 
   serialEvent();
-  
+
   long now = millis();
   if (now - lastMsg > intervalTime) {
     lastMsg = now;
 
     Send_M2A();
-    
+
     digitalWrite(LEDPin, LOW);
     delayMicroseconds(200);
     digitalWrite(LEDPin, HIGH);
