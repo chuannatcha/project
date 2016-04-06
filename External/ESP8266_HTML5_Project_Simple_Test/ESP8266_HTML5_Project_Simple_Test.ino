@@ -8,10 +8,10 @@
 //#include <EEPROM.h>
 
 
-//const char* ssid     = "ESPERT-002";
-//const char* password = "espertap";
-const char* ssid     = "Slow Net";
-const char* password = "0842216218";
+const char* ssid     = "ESPERT-002";
+const char* password = "espertap";
+//const char* ssid     = "Slow Net";
+//const char* password = "0842216218";
 
 #define APPID   "Chuannatcha"
 #define KEY     "h0RCXwe863KbaTG"
@@ -44,20 +44,32 @@ void onMsghandler(char *topic, uint8_t* payload, unsigned int length) {
   strcpy(W2Amsg, text);
 
   Serial.println(W2Amsg);
-  Serial.println(length);
-  
-/*
-  String stateStr = String(strState).substring(0, msglen);
-  if (stateStr == "OPEN") {
-    digitalWrite(relayPin, LOW);
-    microgear.chat("controllerplug", "OPEN");
-    Serial.println("Accepted 'ON'");
-  } else if (stateStr == "CLOSE") {
-    digitalWrite(relayPin, HIGH);
-    microgear.chat("controllerplug", "CLOSE");
-    Serial.println("Accepted 'OFF'");
+  //Serial.println(length);
+
+  StaticJsonBuffer<200> RxBuffer;
+  JsonObject& Rx = RxBuffer.parseObject(W2Amsg);
+  if (!Rx.success()) {
+    //Serial.println("parseObject() failed");
+    return;
   }
-*/
+  const char* name = Rx["name"];
+  boolean logic = Rx["logic"];
+
+  if(logic == 1)
+  {
+    digitalWrite(LEDPin, LOW);
+    st = 1;
+    Generate_message();
+    microgear.chat("Status", A2Wmsg);
+    
+  }
+  else if(logic == 0)
+  {
+    digitalWrite(LEDPin, HIGH);
+    st = 0;
+    Generate_message();
+    microgear.chat("Status", A2Wmsg);
+  }
 }
 
 void onConnected(char *attribute, uint8_t* msg, unsigned int msglen) {

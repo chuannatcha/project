@@ -18,6 +18,7 @@
 
 #define intervalTime 2500
 #define StatusPin 2
+#define LEDPin 8
 
 char A2Wmsg[50],W2Amsg[50];
 unsigned long timer = 0, lastMsg = 0;
@@ -41,7 +42,27 @@ void onMsghandler(char *topic, uint8_t* inmsg, unsigned int msglen) {
   strcpy(W2Amsg, text);
 
   Serial.println(W2Amsg);
-  Serial.println(msglen);
+
+  StaticJsonBuffer<200> RxBuffer;
+  JsonObject& Rx = RxBuffer.parseObject(W2Amsg);
+  if (!Rx.success()) {
+    Serial.println("parseObject() failed");
+    return;
+  }
+  const char* name = Rx["name"];
+  boolean logic = Rx["logic"];
+  
+  Serial.println(name);
+  Serial.println(logic);
+
+  if(logic == 1)
+  {
+    digitalWrite(LEDPin, HIGH);
+  }
+  else
+  {
+    digitalWrite(LEDPin, LOW);
+  }
 }
 
 void onConnected(char *attribute, uint8_t* msg, unsigned int msglen) {
@@ -55,7 +76,6 @@ void Generate_message()
   JsonObject& Tx = TxBuffer.createObject();
   Tx["Mode"] = "Saving";
   Tx["A1"] = st;
-  //Tx["millis"] = millis();
   strcpy(A2Wmsg, "");
   Tx.printTo(A2Wmsg, sizeof(A2Wmsg));
 }
@@ -64,6 +84,8 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Starting...");
   pinMode(StatusPin, INPUT_PULLUP);
+  pinMode(LEDPin, OUTPUT);
+  digitalWrite(LEDPin, LOW);
 
   microgear.on(MESSAGE, onMsghandler);
   microgear.on(CONNECTED, onConnected);

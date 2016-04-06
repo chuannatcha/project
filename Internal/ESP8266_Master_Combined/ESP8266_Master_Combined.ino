@@ -2,8 +2,10 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-#define intervalTime 2500
 #define LEDPin 2
+#define StatusL1Pin 14
+#define StatusL2Pin 12
+#define StatusL3Pin 13
 #define A2 0
 #define A1 1
 #define L1 2
@@ -18,11 +20,13 @@ const char* ssid = "OpenWrt";
 const char* password = "0842216218";
 IPAddress ip_server(192, 168, 100, 1);
 
+
 const char* ClientID = "ESP8266_Master";
 const char* inTopic = "Status";
 const char* outTopic = "outTopic";
 const char* Air1 = "Air1";
 const char* Light = "Light";
+unsigned int intervalTime = 2500;
 
 String A2Minput = "";
 boolean A2Mcomplete = false;
@@ -116,17 +120,19 @@ void Parse_message()
   }
   const char* Tname = Rx["Tname"];
   boolean Tlogic = Rx["Tlogic"];
+  unsigned int Time = Rx["Time"];
+  
   //Serial.println(Tname);
   //Serial.println(Tlogic);
 
+  if(Time != 0)
+  {
+    intervalTime = Time;
+    //Serial.println("Time Changed");
+  }
+
   if (!strcmp(Tname, "A1"))
     Tstatus[A1] = Tlogic;
-  else if (!strcmp(Tname, "L1"))
-    Tstatus[L1] = Tlogic;
-  else if (!strcmp(Tname, "L2"))
-    Tstatus[L2] = Tlogic;
-  else if (!strcmp(Tname, "L3"))
-    Tstatus[L3] = Tlogic;
   else if (!strcmp(Tname, "M1"))
     Tstatus[M1] = Tlogic;
   else if (!strcmp(Tname, "M2"))
@@ -156,6 +162,10 @@ void Send_M2C()
 
 void Send_M2A()
 {
+  Tstatus[L1] = !digitalRead(StatusL1Pin);
+  Tstatus[L2] = !digitalRead(StatusL2Pin);
+  Tstatus[L3] = !digitalRead(StatusL3Pin);
+  
   strcpy(M2Amsg, "");
   M2Achecksum = 0;
   for (char x = 0; x < 8; x++)
@@ -211,14 +221,14 @@ void Parse_Serial()
     M2Ctype[1] = A2Mmsg[1];
     M2Cmode = A2Mmsg[3];
     M2Clogic = A2Mmsg[5] - 48;
-
+    
     Execute_Command();
   }
 }
 
 void Execute_Command()
 {
-  if ((M2Ctype[0] == 'S') && (M2Cmode == 'S'))
+  if ((M2Ctype[0] == 'S') && (M2Ctype[1] == 'A') && (M2Cmode == 'S'))
   {
     if (M2Clogic == 1)
     {
@@ -274,7 +284,7 @@ void Execute_Command()
     }
   }
 
-  else if ((M2Ctype[0] == 'L') && (M2Cmode == 'R'))
+  else if ((M2Ctype[0] == 'L') && (M2Ctype[1] == 'A') && (M2Cmode == 'R'))
   {
     if (M2Clogic == 1)
     {
@@ -344,11 +354,17 @@ void Execute_Command()
     M2Clogic = 0;
     Send_M2C();
   }
-
+  else
+  {
+    Send_M2C();
+  }
 }
 
 void setup() {
   pinMode(LEDPin, OUTPUT);
+  pinMode(StatusL1Pin, INPUT);
+  pinMode(StatusL2Pin, INPUT);
+  pinMode(StatusL3Pin, INPUT);
   digitalWrite(LEDPin, HIGH);
   Serial.begin(9600);
   WiFi.mode(WIFI_STA);

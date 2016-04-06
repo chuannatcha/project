@@ -2,26 +2,23 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-#define RemoteRelayPinL1  14
-#define SavingRelayPinL1  12
-#define RemoteRelayPinL2  13
-#define SavingRelayPinL2  4
-#define RemoteRelayPinL3  16
-#define SavingRelayPinL3  5
+#define RemoteRelayPin  12
+#define SavingRelayPin  16
+#define StatusPin       5
 #define LEDPin          2
-#define intervalTime    2000
 
 // Update these with values suitable for your network.
 const char* ssid = "OpenWrt";
 const char* password = "0842216218";
 IPAddress ip_server(192, 168, 100, 1);
 
-const char* ClientID = "ESP8266_Light";
-const char* inTopic = "Light";
+const char* ClientID = "ESP8266_Air1";
+const char* inTopic = "Air1";
 const char* outTopic = "Status";
 
 unsigned long lastMsg = 0;
-char C2Mmsg[100], M2Cmsg[100];
+unsigned int intervalTime = 2000;
+char C2Mmsg[200], M2Cmsg[200];
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -57,12 +54,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   memcpy(text, payload, length);
   text[length] = '\0';
 
-  strcpy(M2Cmsg, "");
+  strcpy(M2Cmsg,"");
   strcpy(M2Cmsg, text);
 
   Serial.println(M2Cmsg);
-
-  DynamicJsonBuffer RxBuffer;
+  
+  StaticJsonBuffer<200> RxBuffer;
   JsonObject& Rx = RxBuffer.parseObject(M2Cmsg);
   if (!Rx.success()) {
     Serial.println("parseObject() failed");
@@ -71,48 +68,30 @@ void callback(char* topic, byte* payload, unsigned int length) {
   const char* Rname = Rx["Rname"];
   char mode = Rx["mode"];
   boolean Rlogic = Rx["Rlogic"];
+  unsigned int Time = Rx["Time"];
   Serial.println(Rname);
   Serial.println(mode);
   Serial.println(Rlogic);
+  Serial.println(Time);
 
-  if (!strcmp(Rname, "L1"))
+  if(!strcmp(Rname,"A1"))
   {
-    if (mode == 'R')
+    if(mode == 'R')
     {
-      digitalWrite(RemoteRelayPinL1, !Rlogic);
-      Serial.println("Remote Pin L1 has changed");
+      digitalWrite(RemoteRelayPin,!Rlogic);
+      Serial.println("Remote Pin has changed");
     }
-    else if (mode == 'S')
+    else if(mode == 'S')
     {
-      digitalWrite(SavingRelayPinL1, !Rlogic);
-      Serial.println("Saving Pin L1 has changed");
+      digitalWrite(SavingRelayPin,!Rlogic);
+      Serial.println("Saving Pin has changed");
     }
   }
-  else if (!strcmp(Rname, "L2"))
+
+  if(Time != 0)
   {
-    if (mode == 'R')
-    {
-      digitalWrite(RemoteRelayPinL2, !Rlogic);
-      Serial.println("Remote Pin L2 has changed");
-    }
-    else if (mode == 'S')
-    {
-      digitalWrite(SavingRelayPinL2, !Rlogic);
-      Serial.println("Saving Pin L2 has changed");
-    }
-  }
-  else if (!strcmp(Rname, "L3"))
-  {
-    if (mode == 'R')
-    {
-      digitalWrite(RemoteRelayPinL3, !Rlogic);
-      Serial.println("Remote Pin L3 has changed");
-    }
-    else if (mode == 'S')
-    {
-      digitalWrite(SavingRelayPinL3, !Rlogic);
-      Serial.println("Saving Pin L3 has changed");
-    }
+    intervalTime = Time;
+    Serial.println("Time Changed");
   }
   free(text);
   //if ((char)payload[0] == '1') {
@@ -126,7 +105,7 @@ void reconnect() {
     if (client.connect(ClientID)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish(outTopic, "Light Connected");
+      client.publish(outTopic, "Air1 Connected");
       // ... and resubscribe
       client.subscribe(inTopic);
     } else {
@@ -144,11 +123,11 @@ void Generate_message()
   //boolean st = digitalRead(StatusPin);
   //snprintf (msg, 75, "M1#%d", st);
 
-  //StaticJsonBuffer<200> jsonBuffer;
-  DynamicJsonBuffer TxBuffer;
+  boolean st = !digitalRead(StatusPin);
+  StaticJsonBuffer<200> TxBuffer;
   JsonObject& Tx = TxBuffer.createObject();
-  Tx["Tname"] = "1";
-  Tx["Tlogic"] = 0;//digitalRead(StatusPin);
+  Tx["Tname"] = "A1";
+  Tx["Tlogic"] = st;
   Tx["signal_level"] = WiFi.RSSI();
   Tx["free_heap"] = ESP.getFreeHeap();
   Tx["millis"] = millis();
@@ -157,19 +136,12 @@ void Generate_message()
 }
 
 void setup() {
-  pinMode(RemoteRelayPinL1, OUTPUT);
-  pinMode(SavingRelayPinL1, OUTPUT);
-  pinMode(RemoteRelayPinL2, OUTPUT);
-  pinMode(SavingRelayPinL2, OUTPUT);
-  pinMode(RemoteRelayPinL3, OUTPUT);
-  pinMode(SavingRelayPinL3, OUTPUT);
+  pinMode(RemoteRelayPin, OUTPUT);
+  pinMode(SavingRelayPin, OUTPUT);
   pinMode(LEDPin, OUTPUT);
-  digitalWrite(RemoteRelayPinL1, HIGH);
-  digitalWrite(SavingRelayPinL1, HIGH);
-  digitalWrite(RemoteRelayPinL2, HIGH);
-  digitalWrite(SavingRelayPinL2, HIGH);
-  digitalWrite(RemoteRelayPinL3, HIGH);
-  digitalWrite(SavingRelayPinL3, HIGH);
+  pinMode(StatusPin, INPUT);
+  digitalWrite(RemoteRelayPin, HIGH);
+  digitalWrite(SavingRelayPin, HIGH);
   digitalWrite(LEDPin, HIGH);
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
@@ -189,8 +161,15 @@ void loop() {
   long now = millis();
   if (now - lastMsg > intervalTime) {
     lastMsg = now;
+
+    Generate_message();
+    Serial.print("Publish message: ");
+    Serial.println(C2Mmsg);
+    client.publish(outTopic, C2Mmsg);
+
     digitalWrite(LEDPin, LOW);
     delayMicroseconds(200);
     digitalWrite(LEDPin, HIGH);
+
   }
 }
