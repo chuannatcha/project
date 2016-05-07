@@ -8,7 +8,7 @@
 #define LEDPin          2
 
 // Update these with values suitable for your network.
-const char* ssid = "OpenWrt";
+const char* ssid = "LASCS";
 const char* password = "0842216218";
 IPAddress ip_server(192, 168, 100, 1);
 

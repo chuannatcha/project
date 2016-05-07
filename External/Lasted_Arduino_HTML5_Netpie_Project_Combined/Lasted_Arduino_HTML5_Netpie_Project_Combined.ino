@@ -49,9 +49,15 @@ unsigned char M2Achecksum, A2Mchecksum;
 unsigned long timer = 0, lastMsg = 0;
 boolean M2Acomplete = false, SavingModeRunning = false, SecurityModeRunning = false, SecurityFirstTimeEvent = false, DeviceMode = false; /* 0:Saving 1:Security */
 unsigned long EnSavingBeginCount = 0, DisSavingBeginCount = 0, EnSecurityBeginCount = 0, DisSecurityBeginCount = 0, SecurityFirstTimeCount = 0;
-boolean Tstatus[] = {false, false, false, false, false, false, false, false};
-//Type            A2    A1    L1    L2    L3    M1    M2    M3
-//Index           0     1     2     3     4     5     6     7
+
+boolean SavingProcessing[] = {0, 1, 0, 0, 0, 0, 0, 0, 0};
+boolean RemoteProcessing[] = {1, 0, 0, 0, 0, 0, 0, 1, 0};
+//Index                       0  1  2  3  4  5  6  7  8
+boolean RemoteRelay[] = {false, false, false, false, false};
+boolean SavingRelay[] = {false, false, false, false, false};
+boolean Tstatus[] =     {false, false, false, false, false, false, false, false};
+//Type                   A2    A1    L1    L2    L3    M1    M2    M3
+//Index                  0     1     2     3     4     5     6     7
 
 char A2Mtype[2] = {'A', '1'};
 char A2Mmode = 'R';
@@ -82,16 +88,48 @@ void onMsghandler(char *topic, uint8_t* inmsg, unsigned int msglen) {
     Serial.println("parseObject() failed");
     return;
   }
-  const char* name = Rx["name"];
-  boolean logic = Rx["logic"];
+  const char* Rname = Rx["name"];
+  boolean Rlogic = Rx["logic"];
   //Serial.println(name);
   //Serial.println(logic);
 
-  A2Mtype[0] = name[0];
-  A2Mtype[1] = name[1];
-  A2Mmode = 'R';
-  A2Mlogic = logic;
-  Send_A2M();
+  A2Mtype[0] = Rname[0];
+  A2Mtype[1] = Rname[1];
+  if (!DeviceMode)
+  {
+    unsigned char DeviceNum;
+    boolean SavingCommand, RemoteCommand;
+    if(!strcmp(Rname,"A1"))
+      DeviceNum = A1;
+    else if(!strcmp(Rname,"L1"))
+      DeviceNum = L1;
+    else if(!strcmp(Rname,"L2"))
+      DeviceNum = L2;
+    else if(!strcmp(Rname,"L3"))
+      DeviceNum = L3;
+    //Serial.println(DeviceNum);
+    unsigned char TypeIndex = (SavingRelay[DeviceNum]*4)+(RemoteRelay[DeviceNum]*2)+Tstatus[DeviceNum];
+    SavingCommand = SavingProcessing[TypeIndex];
+    RemoteCommand = RemoteProcessing[TypeIndex];
+    //Serial.println(TypeIndex);
+    if(RemoteCommand == RemoteRelay[DeviceNum])
+    {
+      A2Mmode = 'S';
+      A2Mlogic = SavingCommand;
+    }
+    else
+    {
+      A2Mmode = 'R';
+      A2Mlogic = RemoteCommand;
+    }
+    Send_A2M();
+  }
+  else
+  {
+    A2Mmode = 'R';
+    A2Mlogic = Rlogic;
+    Send_A2M();
+  }
 }
 
 void onConnected(char *attribute, uint8_t* msg, unsigned int msglen)
@@ -138,7 +176,7 @@ void serialEvent() {
 void Parse_Serial()
 {
   unsigned char ChksumPosition = M2Ainput.indexOf('#');
-  String Chksum = M2Ainput.substring(ChksumPosition + 1, ChksumPosition + 2);
+  String Chksum = M2Ainput.substring(ChksumPosition + 1, ChksumPosition + 3);
   unsigned char checksum = Chksum.toInt();
 
   M2Ainput = M2Ainput.substring(0, ChksumPosition);
@@ -147,21 +185,34 @@ void Parse_Serial()
   M2Achecksum = 0;
   for (char x = 0; x < ChksumPosition; x++)
   {
-    M2Achecksum += M2Amsg[x] - 48;
+    if(x != 8)
+    {
+      M2Achecksum += M2Amsg[x] - 48;
+    }
   }
   Serial.print("M2A Status : ");
   Serial.println(M2Amsg);
   //Serial.println(checksum);
-  //Serial.println(M2Achecksum);
+  Serial.print("Checksum : ");
+  Serial.println(M2Achecksum);
 
   //When all status arrived then ...
   if (checksum == M2Achecksum)
   {
     //Serial.println("Status Checksum OK");
-    for (char y = 0; y < ChksumPosition; y++)
+    for (char y = 0; y < 8; y++)
     {
       Tstatus[y] = M2Amsg[y] - 48;
       //Serial.print(Tstatus[y], DEC);
+    }
+    for (char z = 9; z < ChksumPosition; z++)
+    {
+      unsigned char valueRelay = M2Amsg[z] - 48;
+      SavingRelay[z - 9] = bitRead(valueRelay, 1);
+      RemoteRelay[z - 9] = bitRead(valueRelay, 0);
+
+      //Serial.print(SavingRelay[z-9], DEC);
+      //Serial.print(RemoteRelay[z-9], DEC);
     }
     //Serial.println("");
     //Serial.println("Checksum OK");
@@ -242,18 +293,18 @@ void Enable_Security()
   {
     if ((millis() - EnSecurityBeginCount) > MaxEnSecurityTime)
     {
-      //Security Enable ** Found theif **
+      //Security Enable ** Found thief **
       Serial2.print("AT+CMGF=1\r");
       delay(1000);
       Serial2.print("AT+CMGS=\"0842216218\"\r");
       delay(1000);
-      Serial2.print("Found Theif in the RMUTL ELEC Computer Room\r");   //The text for the message
+      Serial2.print("Found Thief in the RMUTL ELEC Computer Room\r");   //The text for the message
       delay(1000);
-      Serial2.write(26);  //Equivalent to sending Ctrl+Z 
-      
+      Serial2.write(26);  //Equivalent to sending Ctrl+Z
+
       Serial1.println("LA-R-1#110");
       SecurityModeRunning = true;
-      Serial.println("Found theif and System has been sent SMS");
+      Serial.println("Found thief and System has been sent SMS");
       digitalWrite(SavingMoniPin, LOW);
       digitalWrite(SavingActPin, LOW);
       digitalWrite(SecurityMoniPin, LOW);
@@ -338,7 +389,7 @@ void setup()
 
   microgear.on(MESSAGE, onMsghandler);
   microgear.on(CONNECTED, onConnected);
-  
+
   if (Ethernet.begin(mac)) {
     Serial.println(Ethernet.localIP());
     microgear.resetToken();
@@ -351,7 +402,7 @@ void setup()
 void loop()
 {
   //Serial.println("Entered loop code");
-  
+
   serialEvent();
 
   if (!digitalRead(SwitchModePin))
@@ -403,7 +454,7 @@ void loop()
 
     }
   */
-  
+
   if (microgear.connected())
   {
     microgear.loop();
@@ -412,13 +463,13 @@ void loop()
   {
     Serial.println("connection lost, reconnect...");
     microgear.connect(APPID);
-    
-      if (timer >= 5000)
-      {
+
+    if (timer >= 5000)
+    {
       microgear.connect(APPID);
       timer = 0;
-      }
-      else timer += 100;
-    
+    }
+    else timer += 100;
+
   }
 }

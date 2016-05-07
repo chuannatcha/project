@@ -6,16 +6,16 @@
 #define LEDPin          2
 
 // Update these with values suitable for your network.
-const char* ssid = "OpenWrt";
+const char* ssid = "LASCS";
 const char* password = "0842216218";
 IPAddress ip_server(192, 168, 100, 1);
 
-const char* ClientID = "ESP8266_Motion_test";
-const char* inTopic = "Motiontest";
+const char* ClientID = "ESP8266_Motion3";
+const char* inTopic = "Motion3";
 const char* outTopic = "Status";
 
 unsigned long lastMsg = 0;
-unsigned int intervalTime = 2000;
+unsigned int intervalTime = 1000;
 char C2Mmsg[100], M2Cmsg[100];
 
 WiFiClient espClient;
@@ -111,7 +111,7 @@ void Generate_message()
   //StaticJsonBuffer<200> jsonBuffer;
   DynamicJsonBuffer TxBuffer;
   JsonObject& Tx = TxBuffer.createObject();
-  Tx["Tname"] = "Mtest";
+  Tx["Tname"] = "M3";
   Tx["Tlogic"] = digitalRead(StatusPin);
   Tx["signal_level"] = WiFi.RSSI();
   Tx["free_heap"] = ESP.getFreeHeap();

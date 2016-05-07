@@ -39,9 +39,12 @@ boolean M2Clogic = 0;
 
 unsigned char M2Achecksum, A2Mchecksum;
 unsigned long lastMsg = 0;
-boolean Tstatus[] = {false, false, false, false, false, false, false, false};
-//Type            A2     A1     L1     L2     L3     M1     M2     M3
-//Index            0      1      2      3      4      5      6      7
+boolean RemoteRelay[] = {false, false, false, false, false};
+boolean SavingRelay[] = {false, false, false, false, false};
+boolean Tstatus[] =     {false, false, false, false, false, false, false, false};
+//Type                   A2     A1     L1     L2     L3     M1     M2     M3
+//Index                  0      1      2      3      4      5      6      7
+
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -121,19 +124,38 @@ void Parse_message()
   }
   const char* Tname = Rx["Tname"];
   boolean Tlogic = Rx["Tlogic"];
+  boolean RR1 = Rx["RR1"];
+  boolean RR2 = Rx["RR2"];
+  boolean RR3 = Rx["RR3"];
+  boolean SR1 = Rx["SR1"];
+  boolean SR2 = Rx["SR2"];
+  boolean SR3 = Rx["SR3"];
   unsigned int Time = Rx["Time"];
-  
+
   //Serial.println(Tname);
   //Serial.println(Tlogic);
 
-  if(Time != 0)
+  if (Time != 0)
   {
     intervalTime = Time;
     //Serial.println("Time Changed");
   }
 
   if (!strcmp(Tname, "A1"))
+  {
     Tstatus[A1] = Tlogic;
+    RemoteRelay[A1] = RR1;
+    SavingRelay[A1] = SR1;
+  }
+  if (!strcmp(Tname, "LA"))
+  {
+    RemoteRelay[L1] = RR1;
+    RemoteRelay[L2] = RR2;
+    RemoteRelay[L3] = RR3;
+    SavingRelay[L1] = SR1;
+    SavingRelay[L2] = SR2;
+    SavingRelay[L3] = SR3;
+  }
   else if (!strcmp(Tname, "M1"))
     Tstatus[M1] = Tlogic;
   else if (!strcmp(Tname, "M2"))
@@ -166,18 +188,25 @@ void Send_M2A()
   Tstatus[L1] = !digitalRead(StatusL1Pin);
   Tstatus[L2] = !digitalRead(StatusL2Pin);
   Tstatus[L3] = !digitalRead(StatusL3Pin);
-  
+
   strcpy(M2Amsg, "");
   M2Achecksum = 0;
   for (char x = 0; x < 8; x++)
   {
-    M2Amsg[x] = Tstatus[x] + 48;
-    M2Achecksum += Tstatus[x];
+      M2Amsg[x] = Tstatus[x] + 48;
+      M2Achecksum += Tstatus[x];
   }
-  M2Amsg[8] = '\0';
-  snprintf(M2Amsg, 20, "%s#%01d", M2Amsg, M2Achecksum);
+  for (char y = 0; y < 5; y++)
+  {
+      unsigned char valueRelay = (SavingRelay[y]*2)+RemoteRelay[y];
+      M2Amsg[y+9] = valueRelay + 48;
+      M2Achecksum += valueRelay;
+  }
+  M2Amsg[8] = '-';
+  M2Amsg[14] = '\0';
+  snprintf(M2Amsg, 20, "%s#%02d", M2Amsg, M2Achecksum);
   Serial.println(M2Amsg);
-  client.publish(debugTopic,M2Amsg);
+  client.publish(debugTopic, M2Amsg);
 }
 
 void serialEvent() {
@@ -223,7 +252,7 @@ void Parse_Serial()
     M2Ctype[1] = A2Mmsg[1];
     M2Cmode = A2Mmsg[3];
     M2Clogic = A2Mmsg[5] - 48;
-    
+
     Execute_Command();
   }
 }

@@ -20,8 +20,9 @@ const char* inTopic = "Light";
 const char* outTopic = "Status";
 
 unsigned long lastMsg = 0;
-unsigned int intervalTime = 2000;
+unsigned int intervalTime = 1000;
 char C2Mmsg[100], M2Cmsg[100];
+boolean RR[3],SR[3];
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -153,12 +154,24 @@ void Generate_message()
   //boolean st = digitalRead(StatusPin);
   //snprintf (msg, 75, "M1#%d", st);
 
-  //StaticJsonBuffer<200> jsonBuffer;
-  DynamicJsonBuffer TxBuffer;
+  RR[0] = !digitalRead(RemoteRelayPinL1);
+  RR[1] = !digitalRead(RemoteRelayPinL2);
+  RR[2] = !digitalRead(RemoteRelayPinL3);
+  SR[0] = !digitalRead(SavingRelayPinL1);
+  SR[1] = !digitalRead(SavingRelayPinL2);
+  SR[2] = !digitalRead(SavingRelayPinL3);
+
+  StaticJsonBuffer<200> TxBuffer;
   JsonObject& Tx = TxBuffer.createObject();
-  Tx["Tname"] = "1";
-  Tx["Tlogic"] = 0;//digitalRead(StatusPin);
-  Tx["signal_level"] = WiFi.RSSI();
+  Tx["Tname"] = "LA";
+  Tx["RR1"] = RR[0];
+  Tx["RR2"] = RR[1];
+  Tx["RR3"] = RR[2];
+  Tx["SR1"] = SR[0];
+  Tx["SR2"] = SR[1];
+  Tx["SR3"] = SR[2];
+  //Tx["Tlogic"] = 0;//digitalRead(StatusPin);
+  //Tx["signal_level"] = WiFi.RSSI();
   Tx["free_heap"] = ESP.getFreeHeap();
   Tx["millis"] = millis();
   strcpy(C2Mmsg, "");
@@ -198,6 +211,12 @@ void loop() {
   long now = millis();
   if (now - lastMsg > intervalTime) {
     lastMsg = now;
+
+    Generate_message();
+    Serial.print("Publish message: ");
+    Serial.println(C2Mmsg);
+    client.publish(outTopic, C2Mmsg);
+    
     digitalWrite(LEDPin, LOW);
     delayMicroseconds(200);
     digitalWrite(LEDPin, HIGH);
