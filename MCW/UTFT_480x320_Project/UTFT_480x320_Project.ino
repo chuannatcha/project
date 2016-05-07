@@ -11,13 +11,12 @@
 // This program requires the UTFT library.
 //
 
-#include <UTFT.h>
-
+#include <UTFT.h>  
 // Declare which fonts we will be using
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
 extern uint8_t SevenSegNumFont[];
-
+extern uint8_t UbuntuBold[];
 // Set the pins to the correct ones for your development shield
 // ------------------------------------------------------------
 // Arduino Uno / 2009:
@@ -31,12 +30,16 @@ extern uint8_t SevenSegNumFont[];
 // CTE TFT LCD/SD Shield for Arduino Mega      : <display model>,38,39,40,41
 //
 // Remember to change the model parameter to suit your display module!
-const unsigned int x_text1 = 20;
-const unsigned int x_text2 = 260;
-const unsigned int x_dbm = 190;
-const unsigned int y_line1 = 62;
-const unsigned int y_line2 = 159;
-const unsigned int y_line3 = 256;
+const unsigned int corner_line1 = 14;
+const unsigned int corner_line2 = 111;
+const unsigned int corner_line3 = 208;
+const unsigned int corner_line4 = 305;
+const unsigned int x_text1 = 10;
+const unsigned int x_text2 = 250;
+const unsigned int x_dbm = 185;
+const unsigned int y_line1 = 47;
+const unsigned int y_line2 = 144;
+const unsigned int y_line3 = 241;
 
 double Pt, Pr, Po, VSWR, S11, S12, ReCof;
 
@@ -65,19 +68,27 @@ void loop()
 
 void print_value()
 {
-  myGLCD.setFont(BigFont);
+  if(VSWR>99.99)
+    VSWR = 99.99;
+  myGLCD.setFont(UbuntuBold);
   myGLCD.setColor(255, 255, 255);
   myGLCD.setBackColor(0, 0, 0);
-  myGLCD.printNumF(10 * log10(Pt), 2, x_text1 + 80, y_line1);
-  //myGLCD.print("dBm", x_dbm, y_line1);
-  myGLCD.printNumF(10 * log10(Pr), 2, x_text1 + 80, y_line2);
-  //myGLCD.print("dBm", x_dbm, y_line2);
-  myGLCD.printNumF(10 * log10(Po), 2, x_text1 + 80, y_line3);
-  //myGLCD.print("dBm", x_dbm, y_line3);
+  /*
+  myGLCD.print("      ", x_text1 + 40, y_line1);
+  myGLCD.print("      ", x_text1 + 40, y_line2);
+  myGLCD.print("      ", x_text1 + 40, y_line3);
+  myGLCD.print("      ", x_text2 + 40, y_line1);
+  myGLCD.print("      ", x_text2 + 60, y_line2);
+  myGLCD.print("      ", x_text2 + 40, y_line3);
+  */
+  
+  myGLCD.printNumF(10 * log10(Pt), 2, x_text1 + 40, y_line1);
+  myGLCD.printNumF(10 * log10(Pr), 2, x_text1 + 40, y_line2);
+  myGLCD.printNumF(10 * log10(Po), 2, x_text1 + 40, y_line3);
 
-  myGLCD.printNumF(S11,  2, x_text2 + 110, y_line1);
-  myGLCD.printNumF(VSWR, 2, x_text2 + 110, y_line2);
-  myGLCD.printNumF(S12,  2, x_text2 + 110, y_line3);
+  myGLCD.printNumF(S11,  2, x_text2 + 40, y_line1);
+  myGLCD.printNumF(VSWR, 2, x_text2 + 60, y_line2);
+  myGLCD.printNumF(S12,  2, x_text2 + 40, y_line3);
 }
 
 void calculate()
@@ -98,13 +109,19 @@ void draw_text()
   myGLCD.setFont(BigFont);
   myGLCD.setColor(255, 255, 255);
   myGLCD.setBackColor(0, 0, 0);
-  myGLCD.print("Pt =", x_text1, y_line1);
-  myGLCD.print("Pr =", x_text1, y_line2);
-  myGLCD.print("Po =", x_text1, y_line3);
+  myGLCD.print("Pt:", x_text1, corner_line1+10);
+  myGLCD.print("Pr:", x_text1, corner_line2+10);
+  myGLCD.print("Po:", x_text1, corner_line3+10);
 
-  myGLCD.print("S11  =", x_text2, y_line1);
-  myGLCD.print("VSWR =", x_text2, y_line2);
-  myGLCD.print("S12  =", x_text2, y_line3);
+  myGLCD.print("S11:", x_text2, corner_line1+10);
+  myGLCD.print("VSWR:", x_text2, corner_line2+10);
+  myGLCD.print("S12:", x_text2, corner_line3+10);
+
+  myGLCD.print("dBm", x_dbm, corner_line2-25);
+  myGLCD.print("dBm", x_dbm, corner_line3-25);
+  myGLCD.print("dBm", x_dbm, corner_line4-25);
+  myGLCD.print("dB", x_dbm+255, corner_line2-25);
+  myGLCD.print("dB", x_dbm+255, corner_line4-25);
 }
 
 void draw_layout()
@@ -125,6 +142,7 @@ void draw_layout()
 
   myGLCD.setColor(  0,   0, 255);
   myGLCD.drawRect(  0,  14, 479, 305);
+  myGLCD.drawLine(  0, 111, 479, 111);
   myGLCD.drawLine(  0, 208, 479, 208);
   myGLCD.drawLine(240,  14, 240, 305);
 }
