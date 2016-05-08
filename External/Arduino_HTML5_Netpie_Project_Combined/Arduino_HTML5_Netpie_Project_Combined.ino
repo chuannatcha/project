@@ -33,7 +33,7 @@
 const unsigned long MaxEnSavingTime = 60000;
 const unsigned long MaxDisSavingTime = 10000;
 const unsigned long MaxEnSecurityTime = 10000;
-const unsigned long MaxDisSecurityTime = 10000;
+const unsigned long MaxDisSecurityTime = 30000;
 const unsigned long SecurityModeStartTime = 1000;
 const char SwitchModePin = 22;
 byte mac[] = { 0x00, 0xCD, 0x12, 0xEC, 0x2D, 0x48 };
@@ -157,7 +157,7 @@ void Parse_Serial()
   //When all status arrived then ...
   if (checksum == M2Achecksum)
   {
-    //Serial.println("Status Checksum OK");
+    Serial.println("Status Checksum OK");
     for (char y = 0; y < ChksumPosition; y++)
     {
       Tstatus[y] = M2Amsg[y] - 48;
@@ -277,6 +277,15 @@ void Disable_Security()
     if ((millis() - DisSecurityBeginCount) > MaxDisSecurityTime)
     {
       //Security Disable ** Thief went away **
+
+      Serial2.print("AT+CMGF=1\r");
+      delay(1000);
+      Serial2.print("AT+CMGS=\"0842216218\"\r");
+      delay(1000);
+      Serial2.print("Thief has left the RMUTL Computer Room\r");   //The text for the message
+      delay(1000);
+      Serial2.write(26);  //Equivalent to sending Ctrl+Z 
+      
       Serial1.println("LA-R-0#111");
       SecurityModeRunning = false;
       Serial.println("Thief went away");

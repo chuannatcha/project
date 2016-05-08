@@ -32,9 +32,12 @@
 
 const unsigned long MaxEnSavingTime = 60000;
 const unsigned long MaxDisSavingTime = 10000;
-const unsigned long MaxEnSecurityTime = 10000;
+const unsigned long MaxEnSecurityTime = 20000;
 const unsigned long MaxDisSecurityTime = 10000;
-const unsigned long SecurityModeStartTime = 1000;
+const unsigned long SecurityModeStartTime = 20000;
+const char* TelNumber = "AT+CMGS=\"0842216218\"\r";
+const char TimesCommand = 2;
+const unsigned int EachCommandRelay = 250;
 const char SwitchModePin = 22;
 byte mac[] = { 0x00, 0xCD, 0x12, 0xEC, 0x2D, 0x48 };
 
@@ -50,9 +53,9 @@ unsigned long timer = 0, lastMsg = 0;
 boolean M2Acomplete = false, SavingModeRunning = false, SecurityModeRunning = false, SecurityFirstTimeEvent = false, DeviceMode = false; /* 0:Saving 1:Security */
 unsigned long EnSavingBeginCount = 0, DisSavingBeginCount = 0, EnSecurityBeginCount = 0, DisSecurityBeginCount = 0, SecurityFirstTimeCount = 0;
 
-boolean SavingProcessing[] = {0, 1, 0, 0, 0, 0, 0, 0, 0};
-boolean RemoteProcessing[] = {1, 0, 0, 0, 0, 0, 0, 1, 0};
-//Index                       0  1  2  3  4  5  6  7  8
+boolean SavingProcessing[] = {0, 1, 0, 0, 0, 0, 0, 0};
+boolean RemoteProcessing[] = {1, 0, 0, 0, 0, 0, 1, 0};
+//Index                       0  1  2  3  4  5  6  7
 boolean RemoteRelay[] = {false, false, false, false, false};
 boolean SavingRelay[] = {false, false, false, false, false};
 boolean Tstatus[] =     {false, false, false, false, false, false, false, false};
@@ -99,20 +102,20 @@ void onMsghandler(char *topic, uint8_t* inmsg, unsigned int msglen) {
   {
     unsigned char DeviceNum;
     boolean SavingCommand, RemoteCommand;
-    if(!strcmp(Rname,"A1"))
+    if (!strcmp(Rname, "A1"))
       DeviceNum = A1;
-    else if(!strcmp(Rname,"L1"))
+    else if (!strcmp(Rname, "L1"))
       DeviceNum = L1;
-    else if(!strcmp(Rname,"L2"))
+    else if (!strcmp(Rname, "L2"))
       DeviceNum = L2;
-    else if(!strcmp(Rname,"L3"))
+    else if (!strcmp(Rname, "L3"))
       DeviceNum = L3;
     //Serial.println(DeviceNum);
-    unsigned char TypeIndex = (SavingRelay[DeviceNum]*4)+(RemoteRelay[DeviceNum]*2)+Tstatus[DeviceNum];
+    unsigned char TypeIndex = (SavingRelay[DeviceNum] * 4) + (RemoteRelay[DeviceNum] * 2) + Tstatus[DeviceNum];
     SavingCommand = SavingProcessing[TypeIndex];
     RemoteCommand = RemoteProcessing[TypeIndex];
     //Serial.println(TypeIndex);
-    if(RemoteCommand == RemoteRelay[DeviceNum])
+    if (RemoteCommand == RemoteRelay[DeviceNum])
     {
       A2Mmode = 'S';
       A2Mlogic = SavingCommand;
@@ -143,7 +146,10 @@ void Generate_message()
   StaticJsonBuffer<200> TxBuffer;
   JsonObject& Tx = TxBuffer.createObject();
   Tx["Mode"] = (DeviceMode) ? 1 : 0;
-  Tx["ModeSt"] = (SavingModeRunning || SecurityModeRunning) ? 1 : 0;
+  if (!DeviceMode)
+    Tx["ModeSt"] = (SavingModeRunning) ? 1 : 0;
+  else
+    Tx["ModeSt"] = (SecurityModeRunning) ? 1 : 0;
   Tx["A1"] = (Tstatus[A1]) ? 1 : 0;
   Tx["L1"] = (Tstatus[L1]) ? 1 : 0;
   Tx["L2"] = (Tstatus[L2]) ? 1 : 0;
@@ -185,7 +191,7 @@ void Parse_Serial()
   M2Achecksum = 0;
   for (char x = 0; x < ChksumPosition; x++)
   {
-    if(x != 8)
+    if (x != 8)
     {
       M2Achecksum += M2Amsg[x] - 48;
     }
@@ -193,13 +199,13 @@ void Parse_Serial()
   Serial.print("M2A Status : ");
   Serial.println(M2Amsg);
   //Serial.println(checksum);
-  Serial.print("Checksum : ");
-  Serial.println(M2Achecksum);
+  //Serial.print("Checksum : ");
+  //Serial.println(M2Achecksum);
 
   //When all status arrived then ...
   if (checksum == M2Achecksum)
   {
-    //Serial.println("Status Checksum OK");
+    Serial.println("Status Checksum OK");
     for (char y = 0; y < 8; y++)
     {
       Tstatus[y] = M2Amsg[y] - 48;
@@ -219,8 +225,8 @@ void Parse_Serial()
 
     // When message from ESP-Master arrived then Send to Web
     Generate_message();
-    Serial.print("Publish message: ");
-    Serial.println(A2Wmsg);
+    Serial.print("Message published to web");
+    //Serial.println(A2Wmsg);
     microgear.chat(outTopic, A2Wmsg);
   }
 }
@@ -236,7 +242,11 @@ void Send_A2M()
   }
   A2Mmsg[strlen(A2Mmsg)] = '\0';
   snprintf(A2Mmsg, 20, "%s#%03d", A2Mmsg, A2Mchecksum);
-  Serial1.println(A2Mmsg);
+  for (char x = 1; x <= TimesCommand; x++)
+  {
+    Serial1.println(A2Mmsg);
+    delay(EachCommandRelay);
+  }
 
   //Monitor Arduino to ESP-Master Serial
   Serial.print("A2M Command : ");
@@ -254,7 +264,11 @@ void Enable_Saving()
     if ((millis() - EnSavingBeginCount) > MaxEnSavingTime)
     {
       //Saving Enable
-      Serial1.println("SA-S-1#112");
+      for (char x = 1; x <= TimesCommand; x++)
+      {
+        Serial1.println("SA-S-1#112");
+        delay(EachCommandRelay);
+      }
       SavingModeRunning = true;
       Serial.println("Saving Condition Running");
       digitalWrite(SavingMoniPin, LOW);
@@ -272,7 +286,11 @@ void Disable_Saving()
     if ((millis() - DisSavingBeginCount) > MaxDisSavingTime)
     {
       //Saving Disable
-      Serial1.println("SA-S-0#113");
+      for (char x = 1; x <= TimesCommand; x++)
+      {
+        Serial1.println("SA-S-0#113");
+        delay(EachCommandRelay);
+      }
       SavingModeRunning = false;
       Serial.println("Saving Condition Cancel");
       digitalWrite(SavingMoniPin, HIGH);
@@ -296,13 +314,17 @@ void Enable_Security()
       //Security Enable ** Found thief **
       Serial2.print("AT+CMGF=1\r");
       delay(1000);
-      Serial2.print("AT+CMGS=\"0842216218\"\r");
+      Serial2.print(TelNumber);
       delay(1000);
       Serial2.print("Found Thief in the RMUTL ELEC Computer Room\r");   //The text for the message
       delay(1000);
       Serial2.write(26);  //Equivalent to sending Ctrl+Z
 
-      Serial1.println("LA-R-1#110");
+      for (char x = 1; x <= TimesCommand; x++)
+      {
+        Serial1.println("LA-R-1#110");
+        delay(EachCommandRelay);
+      }
       SecurityModeRunning = true;
       Serial.println("Found thief and System has been sent SMS");
       digitalWrite(SavingMoniPin, LOW);
@@ -328,7 +350,20 @@ void Disable_Security()
     if ((millis() - DisSecurityBeginCount) > MaxDisSecurityTime)
     {
       //Security Disable ** Thief went away **
-      Serial1.println("LA-R-0#111");
+
+      Serial2.print("AT+CMGF=1\r");
+      delay(1000);
+      Serial2.print(TelNumber);
+      delay(1000);
+      Serial2.print("Thief has left the RMUTL Computer Room\r");   //The text for the message
+      delay(1000);
+      Serial2.write(26);  //Equivalent to sending Ctrl+Z
+
+      for (char x = 1; x <= TimesCommand; x++)
+      {
+        Serial1.println("LA-R-0#111");
+        delay(EachCommandRelay);
+      }
       SecurityModeRunning = false;
       Serial.println("Thief went away");
       digitalWrite(SavingMoniPin, LOW);
@@ -345,7 +380,16 @@ void SwitchMode()
   {
     //Change to Security Mode
     Serial.println("Device was on Security Mode");
-    Serial1.println("RA-R-0#113");//Cancel All Remote Command that operated
+    for (char x = 1; x <= TimesCommand; x++)
+    {
+      Serial1.println("RA-R-0#113");//Cancel All Remote Command that operated
+      delay(EachCommandRelay);
+    }
+    for (char x = 1; x <= TimesCommand; x++)
+    {
+      Serial1.println("SA-S-0#113");//Cancel All Remote Command that operated
+      delay(EachCommandRelay);
+    }
     DeviceMode = true;
     SecurityFirstTimeCount = millis();
     digitalWrite(SavingMoniPin, LOW);
@@ -357,7 +401,11 @@ void SwitchMode()
   {
     //Change to Saving Mode
     Serial.println("Device was on Saving Mode");
-    Serial1.println("RA-R-0#113");//Cancel All Remote Command that operated
+    for (char x = 1; x <= TimesCommand; x++)
+    {
+      Serial1.println("RA-R-0#113");//Cancel All Remote Command that operated
+      delay(EachCommandRelay);
+    }
     DeviceMode = false;
     SecurityFirstTimeEvent = false;
     EnSavingBeginCount = millis();

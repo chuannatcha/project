@@ -20,7 +20,7 @@ const char* ssid = "LASCS";
 const char* password = "0842216218";
 IPAddress ip_server(192, 168, 100, 1);
 
-
+const unsigned int aliveTime = 10000;
 const char* ClientID = "ESP8266_Master";
 const char* inTopic = "Status";
 const char* outTopic = "outTopic";
@@ -39,6 +39,7 @@ boolean M2Clogic = 0;
 
 unsigned char M2Achecksum, A2Mchecksum;
 unsigned long lastMsg = 0;
+unsigned long lastUpdate[] = {0, 0, 0, 0, 0, 0, 0, 0};
 boolean RemoteRelay[] = {false, false, false, false, false};
 boolean SavingRelay[] = {false, false, false, false, false};
 boolean Tstatus[] =     {false, false, false, false, false, false, false, false};
@@ -146,8 +147,9 @@ void Parse_message()
     Tstatus[A1] = Tlogic;
     RemoteRelay[A1] = RR1;
     SavingRelay[A1] = SR1;
+    lastUpdate[A1] = millis();
   }
-  if (!strcmp(Tname, "LA"))
+  else if (!strcmp(Tname, "LA"))
   {
     RemoteRelay[L1] = RR1;
     RemoteRelay[L2] = RR2;
@@ -155,23 +157,36 @@ void Parse_message()
     SavingRelay[L1] = SR1;
     SavingRelay[L2] = SR2;
     SavingRelay[L3] = SR3;
+    lastUpdate[L1] = millis();
+    lastUpdate[L2] = millis();
+    lastUpdate[L3] = millis();
   }
   else if (!strcmp(Tname, "M1"))
+  {
     Tstatus[M1] = Tlogic;
+    lastUpdate[M1] = millis();
+  }
   else if (!strcmp(Tname, "M2"))
+  {
     Tstatus[M2] = Tlogic;
+    lastUpdate[M2] = millis();
+  }
   else if (!strcmp(Tname, "M3"))
+  {
     Tstatus[M3] = Tlogic;
+    lastUpdate[M3] = millis();
+  }
 }
 
 void Send_M2C()
 {
-  DynamicJsonBuffer TxBuffer;
+  //DynamicJsonBuffer TxBuffer;
+  StaticJsonBuffer<200> TxBuffer;
   JsonObject& Tx = TxBuffer.createObject();
   Tx["Rname"] = M2Ctype;
   Tx["mode"] = M2Cmode;
   Tx["Rlogic"] = M2Clogic;
-  //Tx["FreeMem"] = ESP.getFreeHeap();
+  Tx["FreeMem"] = ESP.getFreeHeap();
   strcpy(M2Cmsg, "");
   Tx.printTo(M2Cmsg, sizeof(M2Cmsg));
 
@@ -193,14 +208,14 @@ void Send_M2A()
   M2Achecksum = 0;
   for (char x = 0; x < 8; x++)
   {
-      M2Amsg[x] = Tstatus[x] + 48;
-      M2Achecksum += Tstatus[x];
+    M2Amsg[x] = Tstatus[x] + 48;
+    M2Achecksum += Tstatus[x];
   }
   for (char y = 0; y < 5; y++)
   {
-      unsigned char valueRelay = (SavingRelay[y]*2)+RemoteRelay[y];
-      M2Amsg[y+9] = valueRelay + 48;
-      M2Achecksum += valueRelay;
+    unsigned char valueRelay = (SavingRelay[y] * 2) + RemoteRelay[y];
+    M2Amsg[y + 9] = valueRelay + 48;
+    M2Achecksum += valueRelay;
   }
   M2Amsg[8] = '-';
   M2Amsg[14] = '\0';
@@ -415,6 +430,14 @@ void loop()
   long now = millis();
   if (now - lastMsg > intervalTime) {
     lastMsg = now;
+
+    for (char x = 0; x <= 7; x++)
+    {
+      if ((millis() - lastUpdate[x]) > aliveTime)
+      {
+        Tstatus[x] = 0;
+      }
+    }
 
     Send_M2A();
 
