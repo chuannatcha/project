@@ -30,7 +30,7 @@
 #define M2 6
 #define M3 7
 
-const unsigned long MaxEnSavingTime = 60000;
+const unsigned long MaxEnSavingTime = 30000;
 const unsigned long MaxDisSavingTime = 10000;
 const unsigned long MaxEnSecurityTime = 20000;
 const unsigned long MaxDisSecurityTime = 10000;

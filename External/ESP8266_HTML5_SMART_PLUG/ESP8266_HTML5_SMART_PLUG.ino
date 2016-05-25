@@ -12,8 +12,8 @@ const char* ssid     = "Slow Net";
 const char* password = "0842216218";
 
 #define APPID   "Chuannatcha"
-#define KEY     "l4Pw1hd7iLEdJgD"
-#define SECRET  "U4iI9Y6vMX2jG8byiqppP77umskulu"
+#define KEY     "y9AjWh7MgHlpXlg"
+#define SECRET  "4SLpKjGchDPG35ArsGRm7WSUM"
 #define SCOPE   "ESP8266_NO1"
 
 WiFiClient client;
@@ -76,6 +76,7 @@ void setup() {
     //uncomment the line below if you want to reset token -->
     microgear.resetToken();
     microgear.init(KEY, SECRET, SCOPE);
+    Serial.println("Begin to connect APPID");
     microgear.connect(APPID);
   }
 }
@@ -84,7 +85,7 @@ void setup() {
 void loop() {
   if (microgear.connected()) {
     microgear.loop();
-    Serial.println("connect...");
+    Serial.println("connect...OK");
   } else {
     Serial.println("connection lost, reconnect...");
     microgear.connect(APPID);

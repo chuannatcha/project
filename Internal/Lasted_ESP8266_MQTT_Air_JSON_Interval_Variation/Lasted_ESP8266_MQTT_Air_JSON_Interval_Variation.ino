@@ -17,7 +17,7 @@ const char* inTopic = "Air1";
 const char* outTopic = "Status";
 
 unsigned long lastMsg = 0;
-unsigned int intervalTime = 2000;
+unsigned int intervalTime = 1000;
 char C2Mmsg[200], M2Cmsg[200];
 boolean st,RR1,SR1;
 
